@@ -3,19 +3,22 @@ package myretrofitrequest.wsh.com.myretrofitrequest;
 import android.app.Application;
 import android.util.Log;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
+import myretrofitrequest.wsh.com.myretrofitrequest.retrofit.api.RetrofitApi;
+import okhttp3.Cache;
 import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
-import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
-import myretrofitrequest.wsh.com.myretrofitrequest.retrofit.api.RetrofitApi;
 
+import static myretrofitrequest.wsh.com.myretrofitrequest.retrofit.cache.CacheInterceptor.interceptor;
 import static myretrofitrequest.wsh.com.myretrofitrequest.retrofit.util.BuilMapUtils.getStamp;
 
 /**
@@ -53,9 +56,17 @@ public class MyApp extends Application {
     }
 
     private void initRetrofit() {
+//cache url
+        File httpCacheDirectory = new File(getCacheDir(), "responses");
+        int cacheSize = 10 * 1024 * 1024; // 10 MiB
+        Cache cache = new Cache(httpCacheDirectory, cacheSize);
 
-        OkHttpClient okHttpClient = new OkHttpClient();
-        OkHttpClient.Builder clientBuilder = okHttpClient.newBuilder()
+//        作者：wanbo_
+//        链接：http://www.jianshu.com/p/e3d32c016c32
+//        來源：简书
+//        著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+        okhttp3.OkHttpClient okHttpClient = new okhttp3.OkHttpClient();
+        okhttp3.OkHttpClient.Builder clientBuilder = okHttpClient.newBuilder()
                 //添加通用请求信息
                 .addNetworkInterceptor(new Interceptor() {
                     @Override
@@ -82,7 +93,13 @@ public class MyApp extends Application {
         });
         logging.setLevel(HttpLoggingInterceptor.Level.BODY);
         clientBuilder.addNetworkInterceptor(logging);
-        okHttpClient = clientBuilder.build();
+        okHttpClient = clientBuilder
+                .addInterceptor(interceptor)
+                .addNetworkInterceptor(interceptor)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .connectTimeout(20, TimeUnit.SECONDS)
+                .writeTimeout(20, TimeUnit.SECONDS)
+                .cache(cache).build();
         mRetrofit = new Retrofit.Builder()
                 .baseUrl("http://dev.sale.sunsunxiaoli.com/")
                 .client(okHttpClient)
@@ -91,4 +108,6 @@ public class MyApp extends Application {
                 .build();
         mIApi = mRetrofit.create(RetrofitApi.class);
     }
+
+
 }
